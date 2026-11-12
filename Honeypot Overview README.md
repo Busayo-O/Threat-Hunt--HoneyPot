@@ -7,7 +7,7 @@ This project focused on understanding the architecture, deployment requirements,
 The honeypot is designed to simulate an exposed computer system that will attract unauthorized access attempts from external attackers.
 The purpose of the project is to study how suspicious activities can be collected, monitored, analyzed, and investigated using cloud-based cybersecurity tools.
 
-## Platforms and Languages Leveraged
+## Tools and Technologies
 - Microsoft Azure Virtual Machine
 - Windows 11 Operating System
 - Azure Network Security Group (NSG)
@@ -26,8 +26,10 @@ The objectives of this project were to:
 4. Understand how network traffic reaches the honeypot.
 5. Examine the role of security monitoring and log collection.
 6. Understand how Microsoft Defender for Endpoint supports endpoint detection.
-7. Establish a foundation for future threat-hunting investigations.
-8. Document the architecture and training activities in a GitHub repository.
+7. Monitor suspicious network activity.
+8. Investigate security logs.
+9. Document findings and recommended security improvements.
+
 
 ###  What Is a Honeypot?
 
