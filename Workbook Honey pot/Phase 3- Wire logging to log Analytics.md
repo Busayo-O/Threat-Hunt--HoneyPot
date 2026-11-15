@@ -1,6 +1,35 @@
 # Wire logging to log Analytics
 
-<img width="400" src="https://github.com/user-attachments/assets/44bac428-01bb-4fe9-9d85-96cba7698bee" alt="Tor Logo with the onion and a crosshair on it"/>
+# Steps
+* Turned on the Virtual Machine
+* Confirmed device telemetry is flowing to LAW-Cyber-Range(environment)-i.e to confirm it is logged to MDE
+  
+  **Query used to locate events:**
+
+```kql
+  DeviceInfo
+| where DeviceName startswith "CORP-NA02-"
+| order by TimeGenerated desc
+```
+<img width="1212" alt="image" src="https://i.imgur.com/qSvTPk8.png">
+
+* Created a custom-text-log Data Collection Rule (DCR) that points the Azure monitoring agent to the MySQL log file, sending the log file to a custom table
+
+   (i)  Where the logs will be coming from-- The Virtual Machine
+  
+  <img width="1212" alt="image" src="https://i.imgur.com/pWXqOwI.png">
+
+   (ii) The actual logs to be collected
+  
+  <img width="1212" alt="image" src="https://i.imgur.com/8tXbUwz.png">
+
+   (iii) Where logs were kept once collected
+
+  <img width="1212" alt="image" src="https://i.imgur.com/3jyVwxU.png">
+
+   (iv) Azure Monitor successfully installed on the Virtual Machine
+  <img width="1212" alt="image" src="https://i.imgur.com/eXMdim9.png">
+
 
 # Threat Hunt Report: Unauthorized TOR Usage
 - [Scenario Creation](https://github.com/joshmadakor0/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
