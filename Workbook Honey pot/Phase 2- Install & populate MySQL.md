@@ -117,6 +117,8 @@ SHOW VARIABLES LIKE 'general_log_file';
 
 * Confirmation that SQL queries has been recorded.
 
+# Outcome
 
+MySQL general log entries were inspected, demonstrating how database connections and SQL activity were recorded for subsequent monitoring.
 
 
