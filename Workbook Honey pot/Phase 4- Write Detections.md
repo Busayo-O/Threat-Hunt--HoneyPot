@@ -1,49 +1,45 @@
 # Created Analytical Rules that detects when logged either into Virtual Machine or MySQL Server
 
 
-<img width="400" src="https://github.com/user-attachments/assets/44bac428-01bb-4fe9-9d85-96cba7698bee" alt="Tor Logo with the onion and a crosshair on it"/>
-
-# Threat Hunt Report: Unauthorized TOR Usage
-- [Scenario Creation](https://github.com/joshmadakor0/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
-
 ## Platforms and Languages Leveraged
 - Windows 10 Virtual Machines (Microsoft Azure)
 - EDR Platform: Microsoft Defender for Endpoint
 - Kusto Query Language (KQL)
-- Tor Browser
+
 
 ##  Scenario
 
-Management suspects that some employees may be using TOR browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known TOR entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any TOR usage and analyze related security incidents to mitigate potential risks. If any use of TOR is found, notify management.
-
-### High-Level TOR-Related IoC Discovery Plan
-
-- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
-- **Check `DeviceProcessEvents`** for any signs of installation or usage.
-- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known TOR ports.
-
----
+Creation of analytical rule in sentinel that will run a query every 10 minutes and then create an incident. For a record to be recorded, a login would have been initiated successfully into the VM.
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### 1a. Setting up Analytical Rule with the name "Cyber-Defense-Final-CORP-NA02-FE456BU" in MDE and under the "Incident Navigation, select create analytical rule, Using the "Mitre Att&ck" - Brute force-passwords Guessing and Credential access. This will help create the alerts
 
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
 
-**Query used to locate events:**
+<img width="1212" alt="image" src="https://i.imgur.com/rfFKTrC.png">
 
-```kql
-DeviceFileEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName == "employee"  
-| where FileName contains "tor"  
-| where Timestamp >= datetime(2024-11-08T22:14:48.6065231Z)  
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
+
+### 1b. **Query used to locate event:**
+
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
+
+// Virtual Machine Logons
+let MyDevice = "CORP-NA02-FE456BU"; // MDE Truncates/cuts off the device name
+DeviceLogonEvents
+| where DeviceName == MyDevice
+| where AccountName in~ ("administrator", "guest")
+| where ActionType == "LogonSuccess"
+| project TimeGenerated, RemoteIP, AccountName, DeviceName, ActionType, LogonType
+```
+<img width="1212" alt="image" src="https://i.imgur.com/EW0O8dl.png">
 
 ---
+
+
+### 1c. **Analytic Query Successfully made
+
+<img width="1212" alt="image" src="https://i.imgur.com/Up5rVBK.png">
+
 
 ### 2. Searched the `DeviceProcessEvents` Table
 
