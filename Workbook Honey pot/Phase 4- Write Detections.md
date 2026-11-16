@@ -9,7 +9,7 @@
 
 ##  Scenario
 
-Creation of analytical rule in sentinel that will run a query every 10 minutes and then create an incident. For a record to be recorded, a login would have been initiated successfully into the VM.
+Creation of analytical rule in sentinel that will run a query every 10 minutes and then create an incident rule. For a record to be recorded, a login would have been initiated successfully into the VM.
 
 ## Steps Taken
 
