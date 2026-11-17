@@ -1,9 +1,4 @@
-# Official [Cyber Range](http://joshmadakor.tech/cyber-range) Project
-
-<img width="400" src="https://github.com/user-attachments/assets/44bac428-01bb-4fe9-9d85-96cba7698bee" alt="Tor Logo with the onion and a crosshair on it"/>
-
-# Threat Hunt Report: Unauthorized TOR Usage
-- [Scenario Creation](https://github.com/joshmadakor0/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
+# Weakened both the Virtual Machine & Sequel Servers to be discovered over the internet, to enable people logging into it from the public internet.
 
 ## Platforms and Languages Leveraged
 - Windows 10 Virtual Machines (Microsoft Azure)
@@ -25,7 +20,18 @@ Management suspects that some employees may be using TOR browsers to bypass netw
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### 1a. Through computer management(compmgmt.msc),Created local "administrator account" on the Virtual Machine, adeded it to the local administrator group with a weak password,
+
+<img width="1212" alt="image" src="https://i.imgur.com/WXfuTVI.png"> local adminstrator account was created and added to the local admin group
+
+
+### 1b. Enabled guest account, set week/no passwords and enable logging from the public
+
+ <img width="1212" alt="image" src="https://i.imgur.com/W2qApuj.png">weak password set for the guest account
+
+### 1c. 
+
+created root accounts with no password on the MySQL Server, allow traffic to come inbound from the NSG
 
 Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
 
