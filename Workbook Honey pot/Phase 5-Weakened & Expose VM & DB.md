@@ -38,7 +38,9 @@ Management suspects that some employees may be using TOR browsers to bypass netw
 - Removed the Guest account from the policy deny log on through Remote Desktop services(it is ther by default).
 - Configured the Remote Desktop logon policy to permit Guest access.
 - Removed Guest from the Deny log on locally.
-- Disabled the security policy preventing blank-password accounts to console logon only
+- Disabled the security policy preventing blank-password accounts to console logon only(Password Security Settings).
+- Added the Guest account to the Remote Desktop Users group(Remote Desktop User Configuration).
+- Executed gpupdate /force to apply the updated security policies(Group Policy Update).
 
 <img width="1212" alt="image" src="https://i.imgur.com/ieKv8AE.png">
 
@@ -48,49 +50,78 @@ Management suspects that some employees may be using TOR browsers to bypass netw
 
 ---
 
-
 <img width="1212" alt="image" src="https://i.imgur.com/kGcg601.png">
 
 ---
 
-
-
-
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
-
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
-
-**Query used to locate events:**
-
-```kql
-DeviceFileEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName == "employee"  
-| where FileName contains "tor"  
-| where Timestamp >= datetime(2024-11-08T22:14:48.6065231Z)  
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
-```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
+<img width="1212" alt="image" src="https://i.imgur.com/2Csj6uC.png">
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+<img width="1212" alt="image" src="https://i.imgur.com/emTbson.png">
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2024-11-08T22:16:47.4484567Z`, an employee on the "threat-hunt-lab" device ran the file `tor-browser-windows-x86_64-portable-14.0.1.exe` from their Downloads folder, using a command that triggered a silent installation.
+---
+
+### 2a.  MySQL Account 
+- Enabled MySQL authentication over the network.
+- Configured a remote root account using "root" as the password.
+- Granted the account full database privileges and applied the changes.
+
+---
+
+<img width="1212" alt="image" src="https://i.imgur.com/ybOQ9E1.png">
+
+---
+
+### 2b. Microsoft Defender Investigation
+- Captured an investigation package using Microsoft Defender for post-breach analysis.
+
+  ---
+  
+<img width="1212" alt="image" src="https://i.imgur.com/yF8Xb6z.png">
+
+---
+
+### 2c. Windows Firewall Configuration
+- Disabled Windows Firewall to allow network traffic during the exercise
+
+---
+
+<img width="1212" alt="image" src="https://i.imgur.com/iilq36O.png">
+
+---
+
+### 2d. Network Security Group(NSG) Configuration
+- Modified(weakened) the NSG rules to allow all inbound traffic and increase the Virtual Machine's network visibility
+
+---
+
+<img width="1212" alt="image" src="https://i.imgur.com/sRc8xf7.png">
+
+---
+
+### 2e. Exposure Time Documentation
+- Recorded the exact time the virtual machine was exposed to the network to support breach timeline analysis
 
 **Query used to locate event:**
 
 ```kql
 
-DeviceProcessEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where ProcessCommandLine contains "tor-browser-windows-x86_64-portable-14.0.1.exe"  
-| project Timestamp, DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
+let MyDevice = "corp-na02-fe456";
+DeviceInfo
+| where DeviceName == MyDevice
+| order by TimeGenerated desc
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
+<img width="1212" alt="image" src="https://i.imgur.com/Uu0Dqo3.png">
 
 ---
+
+#
+
+
+<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
+<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
+<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
 
 ### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
 
