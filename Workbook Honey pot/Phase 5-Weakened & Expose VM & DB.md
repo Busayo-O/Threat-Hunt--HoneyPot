@@ -10,28 +10,53 @@
 
 Management suspects that some employees may be using TOR browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known TOR entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any TOR usage and analyze related security incidents to mitigate potential risks. If any use of TOR is found, notify management.
 
-### High-Level TOR-Related IoC Discovery Plan
-
-- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
-- **Check `DeviceProcessEvents`** for any signs of installation or usage.
-- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known TOR ports.
-
 ---
 
 ## Steps Taken
 
-### 1a. Through computer management(compmgmt.msc),Created local "administrator account" on the Virtual Machine, adeded it to the local administrator group with a weak password,
+### 1a.  Administrator Account Configuration
+- Created the "local Administrator account using Computer Management(compmgmt.msc).
+- Confirmed membership in the Administrators group(Ensured it is located in the Administrative group).
+- Configured a weak password for security testing.
 
 <img width="1212" alt="image" src="https://i.imgur.com/WXfuTVI.png"> local adminstrator account was created and added to the local admin group
 
 
-### 1b. Enabled guest account, set week/no passwords and enable logging from the public
+### 1b. Guest Account Configuration
+- Enabled the guest account through Computer managemen.
+- Configured the account with a blank password.
+- Added the Guest account to the Users group.
 
  <img width="1212" alt="image" src="https://i.imgur.com/W2qApuj.png">weak password set for the guest account
+ 
 
-### 1c. 
+ <img width="1212" alt="image" src="https://i.imgur.com/ffkr630.png">
 
-created root accounts with no password on the MySQL Server, allow traffic to come inbound from the NSG
+
+### 1c. Remote Access Permissions
+- Opened local Security Policy(secpol.msc), go to local policies, User Rights and select "Deny log on locally".
+- Removed the Guest account from the policy deny log on through Remote Desktop services(it is ther by default).
+- Configured the Remote Desktop logon policy to permit Guest access.
+- Removed Guest from the Deny log on locally.
+- Disabled the security policy preventing blank-password accounts to console logon only
+
+<img width="1212" alt="image" src="https://i.imgur.com/ieKv8AE.png">
+
+---
+
+<img width="1216" height="777" alt="image" src="https://i.imgur.com/BlflRdZ.png" />
+
+---
+
+
+<img width="1212" alt="image" src="https://i.imgur.com/kGcg601.png">
+
+---
+
+
+
+
+<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
 
 Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
 
