@@ -1,4 +1,4 @@
-# Weakened both the Virtual Machine & Sequel Servers to be discovered over the internet, to enable people logging into it from the public internet.
+# Intentional Security Weakening of the Virtual Machine and SQL Server for Public Internet Exposure.
 
 ## Platforms and Languages Leveraged
 - Windows 10 Virtual Machines (Microsoft Azure)
