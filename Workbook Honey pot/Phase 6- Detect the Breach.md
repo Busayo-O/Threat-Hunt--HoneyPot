@@ -1,67 +1,91 @@
-# Official [Cyber Range](http://joshmadakor.tech/cyber-range) Project
+# Monitoring Honeypot Activity and Detecting Security Breaches
 
-<img width="400" src="https://github.com/user-attachments/assets/44bac428-01bb-4fe9-9d85-96cba7698bee" alt="Tor Logo with the onion and a crosshair on it"/>
-
-# Threat Hunt Report: Unauthorized TOR Usage
-- [Scenario Creation](https://github.com/joshmadakor0/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
 
 ## Platforms and Languages Leveraged
 - Windows 10 Virtual Machines (Microsoft Azure)
 - EDR Platform: Microsoft Defender for Endpoint
 - Kusto Query Language (KQL)
-- Tor Browser
+  
 
 ##  Scenario
 
-Management suspects that some employees may be using TOR browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known TOR entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any TOR usage and analyze related security incidents to mitigate potential risks. If any use of TOR is found, notify management.
-
-### High-Level TOR-Related IoC Discovery Plan
-
-- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
-- **Check `DeviceProcessEvents`** for any signs of installation or usage.
-- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known TOR ports.
+Following the successful exposure of the honeypot to the public internet, periodic monitoring was conducted using Microsoft Defender Advanced Hunting to identify potential attacker activity. Three predefined queries were entered to monitor incoming security events, verified that detection rules were functioning and identify signs of a possible security breach. This Phase focused on confirming attacker activity and detecting potential security incidents, providing a foundation for further investigation and detailed post-breach analysis.
 
 ---
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### 1. MySQL login activity Monitoring
 
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
+Executed the MySQL login activity query developed in Phase 4 using Microsoft Defender Advanced Hunting. The query was used to monitor and identify successful and failed login attempts, including associated usernames and source IP addresses. This helped track unauthorized access attempts, identify suspicious login patterns, and detect potential security breaches involving the MySQL server.
 
 **Query used to locate events:**
 
 ```kql
-DeviceFileEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName == "employee"  
-| where FileName contains "tor"  
-| where Timestamp >= datetime(2024-11-08T22:14:48.6065231Z)  
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
+// SQL Server
+let MyDevice = "corp-na02-fe456bu";
+let MyTimeframe = todatetime("2026-11-17T19:14:14.7056265Z");
+let FailedConnections =
+MySQLAudit_CL
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| where RawData has "Access denied"
+| extend ConnectionId = extract(@"^\S+\s+(\d+)\s+Connect", 1, RawData)
+| distinct ConnectionId;
+MySQLAudit_CL
+| where TimeGenerated > MyTimeframe
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| where RawData has "Connect"
+| extend ConnectionId = extract(@"^\S+\s+(\d+)\s+Connect", 1, RawData)
+| extend ActionType =
+    case(
+        RawData has "Access denied", "LogonFailure",
+        ConnectionId in (FailedConnections), "Ignore",
+        "LogonSuccess"
+    )
+| where ActionType != "Ignore"
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend Username = replace_string(tostring(split(tostring(split(RawData,"@")[0]), " ")[-1]), "'", "")
+| extend IpAddress = replace_string(tostring(split(split(RawData,"@")[1], " ")[0]), "'", "")
+| project TimeGenerated, DeviceName, Username, IpAddress, ActionType, RawData
+| order by TimeGenerated desc
+
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
+<img width="1212" alt="image" src="https://i.imgur.com/2mZYkDh.png">
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+### 2. Monitoring SQL Queries Executed on the MySQL Database
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2024-11-08T22:16:47.4484567Z`, an employee on the "threat-hunt-lab" device ran the file `tor-browser-windows-x86_64-portable-14.0.1.exe` from their Downloads folder, using a command that triggered a silent installation.
+Executed the MySQL query monitoring search using Microsoft Defender Advanced Hunting to review SQL statements executed on the database following its exposure to the public internet. The investigation focused on identifying suspicious database activities, including unauthorized queries, modifications, and attempts to delete database schemas or entire databases. This monitoring helped assess potential database tampering and identify activities requring further investigation during the post-breach analysis phase
 
 **Query used to locate event:**
 
 ```kql
 
-DeviceProcessEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where ProcessCommandLine contains "tor-browser-windows-x86_64-portable-14.0.1.exe"  
-| project Timestamp, DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
+// Filtering Queries
+let MyDevice = "corp-na02-fe456bu"; // set your own device name
+let ServerVulnerableDateTime = todatetime("2026-11-17T19:14:14.7056265Z");
+MySQLAudit_CL
+| where TimeGenerated > ServerVulnerableDateTime
+| where RawData has "Query"
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| extend ActionType = "Query"
+| extend Query = split(RawData, "Query")[1]
+| project TimeGenerated, DeviceName, ActionType, Query, RawData
+| order by TimeGenerated desc
+
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
+<img width="1212" alt="image" src="https://i.imgur.com/cqe9uYO.png">
 
 ---
 
-### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
+### 3. Monitoring Virtual Machine (VM) Login Activity
 
 Searched for any indication that user "employee" actually opened the TOR browser. There was evidence that they did open it at `2024-11-08T22:17:21.6357935Z`. There were several other instances of `firefox.exe` (TOR) as well as `tor.exe` spawned afterwards.
 
