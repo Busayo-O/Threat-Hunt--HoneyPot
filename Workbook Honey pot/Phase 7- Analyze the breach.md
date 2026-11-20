@@ -75,16 +75,6 @@ A quick read showed that the database had been ransomed within about 72 hours. T
   - a)There are four DROP DATABASE statements, all at 16:40 on Nov 18: cr_corp_01, recover_your_data, sakila and world. In SQL, DROP means delete.
   - b) At 05:29–05:30 on Nov 18, before the drops, the attacker renamed every table with an x_ prefix. 
 
-- Revoked the root account’s privileges to insert, update, delete, and drop.
-
-
-
-Tried to purge the binary logs, removing evidence.
-
-
-
-Created a RECOVER_YOUR_DATA table with a ransom note demanding 1.43 Bitcoin within 48 hours. The note threatened to publish and delete the data otherwise
-
 
 **Query used to locate event:**
 
@@ -110,24 +100,52 @@ MySQLAudit_CL
 
 ---
 
-### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
+### 3a. VM logon activity
 
-Searched for any indication that user "employee" actually opened the TOR browser. There was evidence that they did open it at `2024-11-08T22:17:21.6357935Z`. There were several other instances of `firefox.exe` (TOR) as well as `tor.exe` spawned afterwards.
+Queried DeviceLogonEvents with the truncated device name and exposured timestamp. Filtered for successful logons to see who got in, then remove the filter and exported all the logon events.
 
 **Query used to locate events:**
 
 ```kql
-DeviceProcessEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where FileName has_any ("tor.exe", "firefox.exe", "tor-browser.exe")  
-| project Timestamp, DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine  
+let MyDevice = "corp-na02-fe456";
+let ServerVulnerableDateTime = datetime(2026-11-17T19:14:14.7056265Z);
+DeviceLogonEvents
+| where Timestamp > ServerVulnerableDateTime
+| where DeviceName startswith MyDevice
+//| where AccountName in~ ("administrator", "guest")
+| project Timestamp, RemoteIP, AccountName, DeviceName, ActionType, LogonType
 | order by Timestamp desc
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b13707ae-8c2d-4081-a381-2b521d3a0d8f">
+<img width="1212" alt="image" src="https://i.imgur.com/zi6cEvt.png">
 
 ---
 
-### 4. Searched the `DeviceNetworkEvents` Table for TOR Network Connections
+### 3b. Noted the first successful logon time and store it in a variable for the queries that followed
+
+**Query used to locate events:**
+
+```kql
+let MyDevice = "corp-na02-fe456";
+let ExposureTime = datetime(2026-11-17T19:14:14.7056265Z);
+let FirstSuccessfulLogonTime = toscalar(
+    DeviceLogonEvents
+    | where Timestamp > ExposureTime
+    | where DeviceName startswith MyDevice
+    | where ActionType == "LogonSuccess"
+    | where AccountName !startswith "dwm-" and AccountName !startswith "umfd-"
+    | summarize min(Timestamp)
+);
+DeviceProcessEvents
+| where Timestamp >= FirstSuccessfulLogonTime
+| where DeviceName startswith MyDevice
+| project Timestamp, AccountName, DeviceName, ProcessCommandLine, InitiatingProcessCommandLine, FolderPath, FileName
+| order by Timestamp asc
+```
+<img width="1212" alt="image" src="https://i.imgur.com/1X4yOqy.png">
+
+
+
+### 4. Activity on the VM after the first logon
 
 Searched for any indication the TOR browser was used to establish a connection using any of the known TOR ports. At `2024-11-08T22:18:01.1246358Z`, an employee on the "threat-hunt-lab" device successfully established a connection to the remote IP address `176.198.159.33` on port `9001`. The connection was initiated by the process `tor.exe`, located in the folder `c:\users\employee\desktop\tor browser\browser\torbrowser\tor\tor.exe`. There were a couple of other connections to sites over port `443`.
 
