@@ -143,84 +143,72 @@ DeviceProcessEvents
 ```
 <img width="1212" alt="image" src="https://i.imgur.com/1X4yOqy.png">
 
-
+---
 
 ### 4. Activity on the VM after the first logon
 
-Searched for any indication the TOR browser was used to establish a connection using any of the known TOR ports. At `2024-11-08T22:18:01.1246358Z`, an employee on the "threat-hunt-lab" device successfully established a connection to the remote IP address `176.198.159.33` on port `9001`. The connection was initiated by the process `tor.exe`, located in the folder `c:\users\employee\desktop\tor browser\browser\torbrowser\tor\tor.exe`. There were a couple of other connections to sites over port `443`.
+From the first successful logon (administrator, 80.94.95.83, 2026-11-18T05:08:52ZUTC) onward, I queried four tables for corp-na02-fe456 and exported each as a CSV to my log folder.
+
+I queried DeviceProcessEvents from the first successful logon (administrator from 80.94.95.83 at 2026-11-18T05:08:52Z) onward. There was no process activity under administrator. The only non-system account with activity was greenview, my own account. The compromise was carried out over the network through MySQL rather than on the host.
 
 **Query used to locate events:**
 
 ```kql
-DeviceNetworkEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName != "system"  
-| where InitiatingProcessFileName in ("tor.exe", "firefox.exe")  
-| where RemotePort in ("9001", "9030", "9040", "9050", "9051", "9150", "80", "443")  
-| project Timestamp, DeviceName, InitiatingProcessAccountName, ActionType, RemoteIP, RemotePort, RemoteUrl, InitiatingProcessFileName, InitiatingProcessFolderPath  
+let FirstSuccessfulLogonTime = datetime(2026-11-17T10:08:52Z);
+let MyDevice = "corp-na02-fe456";
+DeviceProcessEvents
+| where Timestamp >= FirstSuccessfulLogonTime
+| where AccountName == "administrator"
+| where DeviceName startswith MyDevice
+| project Timestamp, AccountName, DeviceName, ProcessCommandLine, InitiatingProcessCommandLine, FolderPath, FileName
 | order by Timestamp desc
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/87a02b5b-7d12-4f53-9255-f5e750d0e3cb">
+<img width="1212" alt="image" src="https://i.imgur.com/gfTFJBz.png">
 
 ---
 
-## Chronological Event Timeline 
+### 4a. DeviceProcessEvents: 
 
-### 1. File Download - TOR Installer
+- Projected the time, account name, file name, folder path, process command line, and initiating process command line. Sort by newest first and skim the folder paths and command lines for anything unusual.
+- Filtering on AccountName == "administrator" is a useful starting point, because you never logged in as Administrator yourself. Any activity under that account is an attacker.
+- Processes running as SYSTEM can still be attacker activity, such as a scheduled task that keeps recreating a backdoor account.
+  
+**Query used to locate events:**
 
-- **Timestamp:** `2024-11-08T22:14:48.6065231Z`
-- **Event:** The user "employee" downloaded a file named `tor-browser-windows-x86_64-portable-14.0.1.exe` to the Downloads folder.
-- **Action:** File download detected.
-- **File Path:** `C:\Users\employee\Downloads\tor-browser-windows-x86_64-portable-14.0.1.exe`
-
-### 2. Process Execution - TOR Browser Installation
-
-- **Timestamp:** `2024-11-08T22:16:47.4484567Z`
-- **Event:** The user "employee" executed the file `tor-browser-windows-x86_64-portable-14.0.1.exe` in silent mode, initiating a background installation of the TOR Browser.
-- **Action:** Process creation detected.
-- **Command:** `tor-browser-windows-x86_64-portable-14.0.1.exe /S`
-- **File Path:** `C:\Users\employee\Downloads\tor-browser-windows-x86_64-portable-14.0.1.exe`
-
-### 3. Process Execution - TOR Browser Launch
-
-- **Timestamp:** `2024-11-08T22:17:21.6357935Z`
-- **Event:** User "employee" opened the TOR browser. Subsequent processes associated with TOR browser, such as `firefox.exe` and `tor.exe`, were also created, indicating that the browser launched successfully.
-- **Action:** Process creation of TOR browser-related executables detected.
-- **File Path:** `C:\Users\employee\Desktop\Tor Browser\Browser\TorBrowser\Tor\tor.exe`
-
-### 4. Network Connection - TOR Network
-
-- **Timestamp:** `2024-11-08T22:18:01.1246358Z`
-- **Event:** A network connection to IP `176.198.159.33` on port `9001` by user "employee" was established using `tor.exe`, confirming TOR browser network activity.
-- **Action:** Connection success.
-- **Process:** `tor.exe`
-- **File Path:** `c:\users\employee\desktop\tor browser\browser\torbrowser\tor\tor.exe`
-
-### 5. Additional Network Connections - TOR Browser Activity
-
-- **Timestamps:**
-  - `2024-11-08T22:18:08Z` - Connected to `194.164.169.85` on port `443`.
-  - `2024-11-08T22:18:16Z` - Local connection to `127.0.0.1` on port `9150`.
-- **Event:** Additional TOR network connections were established, indicating ongoing activity by user "employee" through the TOR browser.
-- **Action:** Multiple successful connections detected.
-
-### 6. File Creation - TOR Shopping List
-
-- **Timestamp:** `2024-11-08T22:27:19.7259964Z`
-- **Event:** The user "employee" created a file named `tor-shopping-list.txt` on the desktop, potentially indicating a list or notes related to their TOR browser activities.
-- **Action:** File creation detected.
-- **File Path:** `C:\Users\employee\Desktop\tor-shopping-list.txt`
+```kql
+let FirstSuccessfulLogonTime = datetime(2026-11-17T10:08:52Z);
+let MyDevice = "corp-na02-fe456";
+DeviceProcessEvents
+| where Timestamp >= FirstSuccessfulLogonTime
+| where DeviceName startswith MyDevice
+| project Timestamp, AccountName, DeviceName, ProcessCommandLine, InitiatingProcessCommandLine, FolderPath, FileName
+| order by Timestamp desc 
+```
+<img width="1212" alt="image" src="https://i.imgur.com/IexLYUK.png">
 
 ---
 
-## Summary
+### 4b. DeviceFileEvents: sort by folder path and look for unusual locations.
 
-The user "employee" on the "threat-hunt-lab" device initiated and completed the installation of the TOR browser. They proceeded to launch the browser, establish connections within the TOR network, and created various files related to TOR on their desktop, including a file named `tor-shopping-list.txt`. This sequence of activities indicates that the user actively installed, configured, and used the TOR browser, likely for anonymous browsing purposes, with possible documentation in the form of the "shopping list" file.
+**Query used to locate events:**
+
+```kql
+let FirstSuccessfulLogonTime = datetime(2026-11-17T10:08:52Z);
+let MyDevice = "corp-na02-fe456";
+DeviceProcessEvents
+| where Timestamp >= FirstSuccessfulLogonTime
+| where DeviceName startswith MyDevice
+| project Timestamp, AccountName, DeviceName, ProcessCommandLine, InitiatingProcessCommandLine, FolderPath, FileName
+| order by Timestamp desc 
+```
+<img width="1212" alt="image" src="https://i.imgur.com/lx27tOz.png">
 
 ---
 
-## Response Taken
+### 5: AI-assisted analysis
 
-TOR usage was confirmed on the endpoint `threat-hunt-lab` by the user `employee`. The device was isolated, and the user's direct manager was notified.
+
+---
+
 
 ---
