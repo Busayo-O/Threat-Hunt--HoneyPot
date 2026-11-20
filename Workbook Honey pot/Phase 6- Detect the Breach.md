@@ -93,7 +93,7 @@ Executed a VM login activity query using Microsoft Defender Advanced Hunting to 
 
 ```kql
 // Virtual Machine Logons
-let MyDevice = "corp-na01-fe123"; // MDE Truncates/cuts off the device name
+let MyDevice = "corp-na02-fe456"; // MDE Truncates/cuts off the device name
 let ServerVulnerableDateTime = todatetime("2026-06-25T00:45:27.1820312Z");
 DeviceLogonEvents
 | where TimeGenerated > ServerVulnerableDateTime
@@ -102,8 +102,7 @@ DeviceLogonEvents
 | project TimeGenerated, RemoteIP, AccountName, DeviceName, ActionType, LogonType
 
 ```
-<img width="1212" alt="image" src="https://i.imgur.com/cqe9uYO.png">
-
+<img width="1212" alt="image" src="https://i.imgur.com/iGLuLcu.png">
 ---
 
 ## Summary
