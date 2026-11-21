@@ -7,32 +7,30 @@
 
 ##  Scenario
 
-Management suspects that some employees may be using TOR browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known TOR entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any TOR usage and analyze related security incidents to mitigate potential risks. If any use of TOR is found, notify management.
+This phase covered eradication and recovery from the NIST SP 800-61 incident response life cycle. The goal was to remove the attacker's access and restore the system to a normal, secure state, bringing back availability in CIA triad terms.
 
-### High-Level TOR-Related IoC Discovery Plan
+## Scope of the compromise
 
-- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
-- **Check `DeviceProcessEvents`** for any signs of installation or usage.
-- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known TOR ports.
+The environment was a virtual machine running MySQL Server, hosting databases that contained customer data. All of these were compromised. A database backup had been created in Phase 2 (a dummy database), which made recovery possible. For this project, I followed the clean-up-and-harden approach by undoing each weakness introduced in Phase 5.
+
+
+## Two recovery approaches
+
+- Rebuild (the safest option): To destroy the compromised VM entirely, build a new hardened VM, reinstall MySQL, and restore the data from backup. When there is no way to be fully certain the VM itself was not tampered with, rebuilding is the safest choice, and it would have been the preferred approach had a clean backup and the ability to destroy the VM been available.
+- Clean up and harden: If there are no clear signs that the VM itself was compromised, or if rebuilding is not an option, the existing machine can be cleaned up. This means hardening the Network Security Group (NSG), the VM, and the MySQL installation, and then restoring the data from backup.
 
 ---
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### 1. Closed the network
 
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
-
-**Query used to locate events:**
-
-```kql
-DeviceFileEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName == "employee"  
-| where FileName contains "tor"  
-| where Timestamp >= datetime(2024-11-08T22:14:48.6065231Z)  
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
+These steps was completed before releasing the VM from isolation, so that no one could reach it from the internet in the meantime.
+- In the Azure portal, On the VM's Networking → Network settings.
+- On the VM's own NSG, the allow-all inbound rule was deleted, with only the default rules remaining, internet traffic was blocked again.
+- I started the VM, which had been off, and waited about 30 seconds.
+In Defender, I opened the device and selected the three dots → Release from isolation.
+I connected to the VM through Bastion
 ```
 <img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
 
