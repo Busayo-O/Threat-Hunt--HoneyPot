@@ -65,7 +65,16 @@ These steps was completed before releasing the VM from isolation, so that no one
 
 - With the guest account disabled and the Administrator account removed, the weakened security policies from Phase 5 no longer had any effect
 
-### Step 3 : Blocked remote MySQL logins (Not to allow logon to the MySQL Server from the public internet)
+### Step 3: Turned the Windows Firewall back on
+- Open Run on VM → wf.msc → Properties and set the firewall to On for the Domain, Private, and Public profiles.
+
+---
+
+<img width="1212" alt="image" src="https://i.imgur.com/n7gm2Vp.png">
+
+---
+
+### Step 4 : Blocked remote MySQL logins (Not to allow logon to the MySQL Server from the public internet)
 
 - Opened C:\ProgramData\MySQL\MySQL Server 8.x\my.ini.
 - Searched for the bind-address = 0.0.0.0 line and deleted it. This makes MySQL listen on all network interfaces, so it accepts connections from any IP address(local and remote). Without it, MySQL accepts only local connections and reject remote ones.
@@ -76,7 +85,7 @@ These steps was completed before releasing the VM from isolation, so that no one
 
 - Saved the file.
 
-### Step 4 : Secured the MySQL root accounts
+### Step 5 : Secured the MySQL root accounts
 
 - Connected in MySQL Workbench with the local root account. Changed the password to a strong one for the root account that logs in over the network.
 
@@ -91,8 +100,7 @@ ALTER USER 'root'@'%' IDENTIFIED BY '<strong-password>';
 
 ---
 
-  
-### Step 5 : Restored the data by running the Script from Phase 2
+### Step 6 : Restored the data by running the Script from Phase 2
 
 - Searched for the ransomware databased table on MySQL Workbench.
   ```
@@ -100,39 +108,26 @@ ALTER USER 'root'@'%' IDENTIFIED BY '<strong-password>';
  
 ---
 
+- Removed the ransomware database table by dropping both the "Schema(database) & Table". 
+  
+  **Query used to locate events:**
 
-- Removed the ransomware database table by dropping it. Dropping only the table leaves the schema behind, so drop the whole schema:
-
+```
 sql
 
 DROP SCHEMA recover_your_data;
-
-
-
-
-
-Restore the data. The instructor reran the Phase 2 population script. Click without highlighting anything, then click the lightning bolt.
-
-
-
-Bonus practice: if you took a real backup in Phase 2, restore from that backup instead.
-
-  <img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
-
-**Query used to locate event:**
-
-```kql
-
-DeviceProcessEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where ProcessCommandLine contains "tor-browser-windows-x86_64-portable-14.0.1.exe"  
-| project Timestamp, DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
+<img width="1212" alt="image" src="https://i.imgur.com/CCcFQ9G.png">
 
 ---
 
-### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
+- Restored the data by rerunning the Phase 2 population script(this was used to create the Schema, i.e the dummy database). Once it’s done, the tables are back, including the clear-text passwords
+
+  <img width="1212" alt="image" src="https://i.imgur.com/v8bxmu7.png">
+
+---
+
+### Step 7 : 
 
 Searched for any indication that user "employee" actually opened the TOR browser. There was evidence that they did open it at `2024-11-08T22:17:21.6357935Z`. There were several other instances of `firefox.exe` (TOR) as well as `tor.exe` spawned afterwards.
 
