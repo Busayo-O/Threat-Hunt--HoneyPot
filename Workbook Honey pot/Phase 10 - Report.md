@@ -23,22 +23,103 @@ By the end of the project, I had worked through every stage:
 ## Steps Taken
 
 ### 1: Exported the logs for the incident window
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2024-11-08T22:27:19.7259964Z`. These events began at `2024-11-08T22:14:48.6065231Z`.
+(A)   I set the time window in Advanced hunting, using the two timestamps I had recorded(i.e Time when Virtual Machine was Vulnerable;  "2026-11-17T19:14:14.7056265Z" and time when the Virtual Machine was isolated; "2026-11-21T14:56:09.1638924Z").
+   
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("<time made vulnerable>");
+let EndTime = todatetime("<time isolated>");
+```
+
+(B) Adjusted the SQL queries from Phase 6. Replaced each query’s time filter with where TimeGenerated between (StartTime .. EndTime), and checked that the device name is correct. Exported each table as csv. Note: the MySQL queries use the full VM name, and the MDE tables use the truncated name.
+
+### MySQL Authentication Table
 
 **Query used to locate events:**
 
 ```kql
-DeviceFileEvents  
-| where DeviceName == "threat-hunt-lab"  
-| where InitiatingProcessAccountName == "employee"  
-| where FileName contains "tor"  
-| where Timestamp >= datetime(2024-11-08T22:14:48.6065231Z)  
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456bu";
+MySQLAudit_CL
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| where RawData has "Access denied"
+| extend ConnectionId = extract(@"^\S+\s+(\d+)\s+Connect", 1, RawData)
+| distinct ConnectionId;
+MySQLAudit_CL
+| where TimeGenerated between (StartTime .. EndTime)
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| where RawData has "Connect"
+| extend ConnectionId = extract(@"^\S+\s+(\d+)\s+Connect", 1, RawData)
+| extend ActionType =
+    case(
+        RawData has "Access denied", "LogonFailure",
+        ConnectionId in (FailedConnections), "Ignore",
+        "LogonSuccess"
+    )
+| where ActionType != "Ignore"
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend Username = replace_string(tostring(split(tostring(split(RawData,"@")[0]), " ")[-1]), "'", "")
+| extend IpAddress = replace_string(tostring(split(split(RawData,"@")[1], " ")[0]), "'", "")
+| project TimeGenerated, DeviceName, Username, IpAddress, ActionType, RawData
+| order by TimeGenerated desc
 ```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
+<img width="1212" alt="image" src="https://i.imgur.com/5rCzW2S.png">
 
 ---
+
+### MySQL Queries
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456bu";
+MySQLAudit_CL
+| where TimeGenerated between (StartTime .. EndTime)
+| where RawData has "Query"
+| extend RawData = replace_string(RawData, "\t", " ")
+| extend DeviceName = tostring(split(_ResourceId, "/")[-1])
+| where DeviceName == MyDevice
+| extend ActionType = "Query"
+| extend Query = split(RawData, "Query")[1]
+| project TimeGenerated, DeviceName, ActionType, Query, RawData
+| order by TimeGenerated desc
+```
+<img width="1212" alt="image" src="https://i.imgur.com/fZ744Jn.png">
+
+---
+
+### DeviceLogonEvents
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456";
+DeviceLogonEvents
+| where TimeGenerated between (StartTime .. EndTime)
+| where DeviceName == MyDevice
+| where AccountName in~ ("administrator", "guest")
+| project TimeGenerated, RemoteIP, AccountName, DeviceName, ActionType, LogonType
+```
+<img width="1212" alt="image" src="https://i.imgur.com/74mkPoH.png">
+
+----
 
 ### 2. Searched the `DeviceProcessEvents` Table
 
@@ -56,6 +137,8 @@ DeviceProcessEvents
 <img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
 
 ---
+
+- 
 
 ### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
 
