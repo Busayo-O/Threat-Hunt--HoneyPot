@@ -28,17 +28,96 @@ The environment was a virtual machine running MySQL Server, hosting databases th
 These steps was completed before releasing the VM from isolation, so that no one could reach it from the internet in the meantime.
 - In the Azure portal, On the VM's Networking → Network settings.
 - On the VM's own NSG, the allow-all inbound rule was deleted, with only the default rules remaining, internet traffic was blocked again.
-- I started the VM, which had been off, and waited about 30 seconds.
-In Defender, I opened the device and selected the three dots → Release from isolation.
-I connected to the VM through Bastion
-```
-<img width="1212" alt="image" src="https://github.com/user-attachments/assets/71402e84-8767-44f8-908c-1805be31122d">
+- Turned on the VM, which had been off, and waited about 30 seconds.
+- In Defender, I opened the device and selected the three dots to release the VM from isolation.
+
+<img width="1212" alt="image" src="https://i.imgur.com/Y0LfJvx.png">
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+### 2. **Step 2: Clean up the Windows accounts**
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2024-11-08T22:16:47.4484567Z`, an employee on the "threat-hunt-lab" device ran the file `tor-browser-windows-x86_64-portable-14.0.1.exe` from their Downloads folder, using a command that triggered a silent installation.
+ - Through compmgmt.msc on the VM` → Local Users and Groups → Users, and made the following changes:
+
+- Deleted the `Administrator` account, which should not have existed in the first place.
+
+  <img width="1212" alt="image" src="https://i.imgur.com/eMGeT0c.png">
+
+  ---
+
+- Removed the guest account from the two groups they were added during Phase 5.
+
+ <img width="1212" alt="image" src="https://i.imgur.com/VqzrH2r.png">
+
+ ---
+
+ <img width="1212" alt="image" src="https://i.imgur.com/dbyLzE7.png">
+
+ ---
+
+ - Had the "Guest account" disabled.
+
+ <img width="1212" alt="image" src="https://i.imgur.com/JQvgTbZ.png">
+
+ ---
+
+- Set a strong password on my own local account.
+
+- With the guest account disabled and the Administrator account removed, the weakened security policies from Phase 5 no longer had any effect
+
+### Step 3 : Blocked remote MySQL logins (Not to allow logon to the MySQL Server from the public internet)
+
+- Opened C:\ProgramData\MySQL\MySQL Server 8.x\my.ini.
+- Searched for the bind-address = 0.0.0.0 line and deleted it. This makes MySQL listen on all network interfaces, so it accepts connections from any IP address(local and remote). Without it, MySQL accepts only local connections and reject remote ones.
+
+<img width="1212" alt="image" src="https://i.imgur.com/YqSrMJI.png">
+
+---
+
+- Saved the file.
+
+### Step 4 : Secured the MySQL root accounts
+
+- Connected in MySQL Workbench with the local root account. Changed the password to a strong one for the root account that logs in over the network.
+
+**Query used to locate events:**
+
+```sql
+
+ALTER USER 'root'@'%' IDENTIFIED BY '<strong-password>';
+```  
+
+<img width="1212" alt="image" src="https://i.imgur.com/e0Ca97D.png">
+
+---
+
+  
+### Step 5 : Restored the data by running the Script from Phase 2
+
+- Searched for the ransomware databased table on MySQL Workbench.
+  ```
+ <img width="1212" alt="image" src="https://i.imgur.com/dT0WCJr.png">
+ 
+---
+
+
+- Removed the ransomware database table by dropping it. Dropping only the table leaves the schema behind, so drop the whole schema:
+
+sql
+
+DROP SCHEMA recover_your_data;
+
+
+
+
+
+Restore the data. The instructor reran the Phase 2 population script. Click without highlighting anything, then click the lightning bolt.
+
+
+
+Bonus practice: if you took a real backup in Phase 2, restore from that backup instead.
+
+  <img width="1212" alt="image" src="https://github.com/user-attachments/assets/b07ac4b4-9cb3-4834-8fac-9f5f29709d78">
 
 **Query used to locate event:**
 
