@@ -212,6 +212,114 @@ DeviceFileEvents
 
 - Uploaded the exported CSVs to an LLM along with the incident report prompt from the checklist.
 - The prompt asks for:
+-You are a SOC analyst writing an incident report for an incident. Produce a concise report (not a padded one) covering the full
+incident response lifecycle. Use only what the data supports; flag gaps as "Not
+determined from available logs" rather than guessing.
+
+DATA SOURCES POTENTIALLY AVAILABLE (See attached, MS Defender Advanced Hunting + MySQL audit). For example:
+- DeviceLogonEvents      (interactive/remote logons, account context)
+- DeviceProcessEvents    (process execution, command lines, parent/child)
+- DeviceRegistryEvents   (persistence, config changes)
+- DeviceNetworkEvents    (outbound C2, exfil destinations)
+- DeviceFileEvents       (file creation/deletion/encryption activity)
+- MySQLAudit_CL_Auth.csv         (DB auth w/ source IPs)
+- MySQLAuth_CL_Query.csv (DB query activity DROP/RENAME/SELECT)
+- NTANetAnalytics        (network flow/traffic analytics)
+
+Discovered IOCs. For example:
+- BTC address: bc1qk9kvwhzt60u3eqcjllqlj44h0tj7w7n72apz99
+- Contact email: ak+28t2@onionmail.org
+- Reference URL: hxxps://2no[.]co/2mysql
+- DATAID: 28T2
+- Any IP addresses
+
+REPORT STRUCTURE:
+1. Executive Summary — 3-4 sentences, plain language.
+2. Incident Details — detection date/time, reporter, classification (type + severity),
+   affected systems/assets.
+3. Impact Assessment — data CIA effects, scope, business impact.
+4. Indicators of Compromise — table the IOCs above plus any found in logs.
+5. Timeline — chronological, initial access → DB compromise → ransom note → detection.
+   Cite the source table for each entry.
+6. Root Cause / Attack Vector — how access was gained; mark unknowns explicitly.
+7. Response Actions — containment, eradication, recovery taken or recommended.
+8. Evidence — list relevant log queries/artifacts referenced.
+9. Lessons Learned / Recommendations — 4-6 concrete, prioritized items.
+
+For each section, suggest the specific KQL hunt(s) against the tables above that an
+analyst would run to populate it (e.g., MySQLAudit_CLC filtered for DROP/RENAME
+statements around the incident window). Keep KQL realistic and minimal. Leave spaces for the human analyst to paste images of returned logs
+
+
+### Step 3: Generate the forensic comparison with AI
+
+In a separate chat, upload both investigation packages, pre-breach and post-breach, with the DFIR prompt from the checklist. The AI acts as a digital forensics analyst:
+
+It identifies the baseline and the compromised package.
+
+It compares standard MDE package artifacts, such as processes, autoruns, scheduled tasks, users, event logs, SMB sessions, and network data.
+
+For each artifact, it classifies findings as added, removed, changed, or unchanged.
+
+It assesses each finding and flags indicators of compromise
+
+You are a DFIR analyst. You have been given two or more Microsoft Defender for
+Endpoint (MDE) live-response investigation packages collected from the same host at
+different times. Your job is to determine whether the host shows signs of compromise
+by comparing the packages — without assuming any particular incident type.
+
+STEP 1 — IDENTIFY THE PACKAGES
+Locate the provided MDE package archives (names will vary). Determine the collection
+order using internal timestamps (one will be pre-breach capture, post-breach capture), embedded collection metadata, or filenames if
+informative. Treat the earliest package as the baseline and later ones as the
+comparison set. State explicitly which package you are treating as the baseline and why.
+
+STEP 2 — COMPARE ACROSS STANDARD MDE PACKAGE ARTIFACTS, INCLUDING:
+- Autoruns / persistence (registry Run keys, scheduled tasks, services, startup folders)
+- Running processes and loaded modules
+- Installed services and drivers
+- Scheduled tasks
+- Network connections and listening ports
+- Local users and group membership (esp. new privileged accounts)
+- Security/System/Application event logs (new or cleared entries)
+- File system metadata / prefetch / recently created or modified executables
+- Hosts file, DNS cache, firewall rules
+- Browser/credential artifacts if present
+
+FOR EACH ARTIFACT CATEGORY, REPORT:
+- ADDED     — present later, absent in baseline
+- REMOVED   — present in baseline, absent later (note: log clearing is itself a signal)
+- CHANGED   — present in both but modified (note what changed)
+- UNCHANGED — note briefly
+
+STEP 3 — ASSESS
+For anything ADDED, REMOVED, or CHANGED, classify it as:
+  (a) benign/expected — normal OS, patching, or user activity, or
+  (b) suspicious — and if so, map it to the likely ATT&CK tactic (initial access,
+      execution, persistence, privilege escalation, defense evasion, credential
+      access, discovery, lateral movement, collection, C2, exfiltration, impact)
+      and cite the specific file/line in the package as evidence.
+
+Do not assume a specific attack class (ransomware, data theft, etc.). Let the evidence
+indicate what kind of activity, if any, occurred. If indicators point to a particular
+incident type, say so and explain why; if they're ambiguous, say that too.
+
+STEP 4 — DERIVE AND HUNT FOR IOCs
+Build an IOC list from anything suspicious found in the later package(s) — IPs,
+domains, file hashes, filenames, account names, scheduled task names, etc. Then grep
+both/all packages for those indicators to confirm presence/absence in the baseline.
+
+OUTPUT:
+1. Baseline determination — which package, and the basis for that decision.
+2. Summary verdict — compromise indicators found: yes / no / inconclusive, with a
+   confidence level and one-line justification.
+3. Table of notable deltas (category | item | change type | benign vs suspicious | evidence).
+4. Prioritized list of the strongest compromise indicators, mapped to ATT&CK.
+5. Probable incident type, if the evidence supports one (else "undetermined").
+6. Gaps — anything that couldn't be compared due to missing/incomplete artifacts.
+
+Be concise. Don't flag routine OS churn (temp files, log rotation, normal timestamp
+updates) as suspicious. Prioritize deltas that materially change the compromise picture.
 
 
 
@@ -306,18 +414,21 @@ DeviceNetworkEvents
 - **Event:** Additional TOR network connections were established, indicating ongoing activity by user "employee" through the TOR browser.
 - **Action:** Multiple successful connections detected.
 
-### 6. File Creation - TOR Shopping List
+### Lessons Learned / Recommendations (prioritized)
+- Remove RDP and MySQL from direct internet exposure; require VPN/bastion + IP allow-listing. (Highest — this was the entry path.)
+- Enforce account lockout, MFA, and strong unique passwords for administrator and DB accounts; the brute-force succeeded against weak/guessable credentials.
+- Lock down MySQL privileges: no root'@'%', no wildcard-host superusers; alert on CREATE USER/GRANT ALL/DROP DATABASE.
+- Deploy real-time detection for mass DROP/ransom-note table creation and for SQL_NO_CACHE bulk reads (exfil signature).
+- Verify offline, tested backups for all production databases with regular restore drills.
+- Tune detection/alerting and IR runbook so this class of event is caught at brute-force stage, not post-destruction (current logs show no evidence of timely detection).
 
-- **Timestamp:** `2024-11-08T22:27:19.7259964Z`
-- **Event:** The user "employee" created a file named `tor-shopping-list.txt` on the desktop, potentially indicating a list or notes related to their TOR browser activities.
-- **Action:** File creation detected.
-- **File Path:** `C:\Users\employee\Desktop\tor-shopping-list.txt`
 
 ---
 
 ## Summary
 
-The user "employee" on the "threat-hunt-lab" device initiated and completed the installation of the TOR browser. They proceeded to launch the browser, establish connections within the TOR network, and created various files related to TOR on their desktop, including a file named `tor-shopping-list.txt`. This sequence of activities indicates that the user actively installed, configured, and used the TOR browser, likely for anonymous browsing purposes, with possible documentation in the form of the "shopping list" file.
+A large-scale brute-force and password-spray attack. The Administrator account locked out many times. The firewall disabled. No confirmed signs of deeper compromise on the host itself. If the VM stays exposed longer, attackers may install crypto miners or cause other damage on the host.
+
 
 ---
 
