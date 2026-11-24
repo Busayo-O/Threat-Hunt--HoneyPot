@@ -33,7 +33,17 @@ let StartTime = todatetime("<time made vulnerable>");
 let EndTime = todatetime("<time isolated>");
 ```
 
-(B) Adjusted the SQL queries from Phase 6. Replaced each query’s time filter with where TimeGenerated between (StartTime .. EndTime), and checked that the device name is correct. Exported each table as csv. Note: the MySQL queries use the full VM name, and the MDE tables use the truncated name.
+(B) I adjusted the helper queries from Phase 6, replacing each query's time filter with where TimeGenerated between (StartTime .. EndTime) and verifying the device name. The MySQL queries used the full VM name(CORP-NA02-FE456BU), and the MDE tables used the truncated name(CORP-NA02-FE456). Exported each table as csv. Note: the MySQL queries use the full VM name, and the MDE tables use the truncated name.
+
+
+(C) I exported each table as CSV:
+    - MySQL authentication
+    - MySQL queries
+    - DeviceLogonEvents
+    - DeviceProcessEvents
+    - DeviceRegistryEvents, DeviceNetworkEvents, and DeviceFileEvents, as relevant to what happened in my environment
+    
+Because each table has different columns, I adjusted the project line for each one. For DeviceProcessEvents, I included columns such as FileName, FolderPath, ProcessCommandLine, InitiatingProcessCommandLine, AccountName, and DeviceName.
 
 ### MySQL Authentication Table
 
@@ -198,9 +208,12 @@ DeviceFileEvents
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+### 2. Generated the incident report with AI
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2024-11-08T22:16:47.4484567Z`, an employee on the "threat-hunt-lab" device ran the file `tor-browser-windows-x86_64-portable-14.0.1.exe` from their Downloads folder, using a command that triggered a silent installation.
+- Uploaded the exported CSVs to an LLM along with the incident report prompt from the checklist.
+- The prompt asks for:
+
+
 
 **Query used to locate event:**
 
