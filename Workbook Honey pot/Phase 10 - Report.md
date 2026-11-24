@@ -121,6 +121,83 @@ DeviceLogonEvents
 
 ----
 
+### DeviceProcessEvents
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456";
+DeviceProcessEvents
+| where TimeGenerated between (StartTime .. EndTime)
+| where DeviceName == MyDevice
+| project TimeGenerated, FileName, FolderPath, ProcessCommandLine, InitiatingProcessCommandLine, AccountName, DeviceName, ActionType
+```
+<img width="1212" alt="image" src="https://i.imgur.com/nflgWqE.png">
+
+---
+
+### DeviceRegistryEvents
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456";
+DeviceRegistryEvents
+| where TimeGenerated between (StartTime .. EndTime)
+| where DeviceName == MyDevice
+| project TimeGenerated, InitiatingProcessCommandLine, DeviceName, ActionType, RegistryKey, RegistryValueName, RegistryValueData, InitiatingProcessFileName 
+```
+
+<img width="1212" alt="image" src="https://i.imgur.com/Vq7bWK5.png">
+
+---
+
+### DeviceNetworkEvents
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456";
+DeviceNetworkEvents
+| where TimeGenerated between (StartTime .. EndTime)
+| where DeviceName == MyDevice
+| project TimeGenerated, InitiatingProcessCommandLine, DeviceName, ActionType, InitiatingProcessFileName, RemoteIP, RemotePort
+```
+<img width="1212" alt="image" src="https://i.imgur.com/1c5NywH.png">
+
+---
+
+### DeviceFileEvents
+
+**Query used to locate events:**
+
+```kql
+
+let StartTime = todatetime("2026-11-17T19:14:14.7056265Z");
+let EndTime = todatetime("2026-11-21T14:56:09.1638924Z");
+// SQL Server
+let MyDevice = "corp-na02-fe456";
+DeviceFileEvents
+| where TimeGenerated between (StartTime .. EndTime)
+| where DeviceName == MyDevice
+| project TimeGenerated, InitiatingProcessCommandLine, DeviceName, ActionType, InitiatingProcessFileName,FolderPath,FileName
+```
+<img width="1212" alt="image" src="https://i.imgur.com/BmnCBOB.png">
+
+---
+
 ### 2. Searched the `DeviceProcessEvents` Table
 
 Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2024-11-08T22:16:47.4484567Z`, an employee on the "threat-hunt-lab" device ran the file `tor-browser-windows-x86_64-portable-14.0.1.exe` from their Downloads folder, using a command that triggered a silent installation.
